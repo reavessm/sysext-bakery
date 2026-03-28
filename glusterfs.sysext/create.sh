@@ -34,6 +34,7 @@ function list_available_versions() {
   #       and print available versions, one version per line.
   #  e.g. using list_github_releases from lib/helpers.sh.      
   true
+  list_github_tags "gluster" "glusterfs"
 }
 # --
 
@@ -53,6 +54,8 @@ function populate_sysext_root() {
   local arch="$2"
   local version="$3"
 
+  local image="docker.io/library/alpine:latest"
+
   # TODO: add code to populate ${sysextroot} here.
   # e.g.
   # local rel_arch="$(arch_transform "x86-64" "amd64" "$arch")"
@@ -65,6 +68,34 @@ function populate_sysext_root() {
   # WARNING: NEVER ship /usr/sbin in a sysext.
   # On Flatcar, /usr/sbin is a symlink to /usr/bin; shipping it in a sysext
   # would overwrite /usr/sbin at merge and make its contents disappear.
+
+  announce "Building glusterfs $version for $arch"
+
+  local cri="$(command -v podman)"
+  echo "cri ${cri}"
+  if [[ -z "${cri}" ]]
+  then
+    cri="$(command -v docker)"
+  fi
+  echo "cri ${cri}"
+
+  if [[ -z "${cri}" ]]
+  then
+    echo "Podman or docker must be installed"
+    exit 1
+  fi
+
+  local user_group="$(id -u):$(id -g)"
+
+  cp "${scriptroot}/glusterfs.sysext/build.sh" .
+
+  ${cri} run --rm \
+    -i \
+    --name "glusterfs-builder" \
+    -v "$(pwd)":/install_root \
+    --pull always \
+    ${image} \
+      /install_root/build.sh "${version}" "${user_group}"
 }
 # --
 
